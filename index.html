@@ -3,100 +3,405 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extension Bridge Interface</title>
+    <title>FIOX Extension Bridge Interface</title>
     <style>
-        body { font-family: sans-serif; margin: 30px; background-color: #f7f9fa; }
-        .box { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; }
-        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --accent: #2dd4bf;
+            --accent-orange: #fb923c;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--bg-secondary);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            color: var(--accent);
+            margin: 0 0 8px 0;
+            font-size: 24px;
+        }
+
+        .status-panel {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-active { background: rgba(45, 212, 191, 0.2); color: var(--accent); }
+        .badge-blocked { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: var(--accent-orange);
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--text-muted);
+            border-radius: 4px;
+            color: var(--text-main);
+            box-sizing: border-box;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        button {
+            background-color: var(--accent);
+            color: var(--bg-primary);
+            border: none;
+            padding: 10px 16px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .console-log {
+            background: #020617;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 13px;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border: 1px solid #334155;
+        }
+
+        .log-entry { margin-bottom: 6px; line-height: 1.4; }
+        .log-send { color: #38bdf8; }
+        .log-recv { color: #4ade80; }
+        .log-err { color: var(--danger); }
+        .log-warn { color: var(--accent-orange); }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h2>Extension Bridge Status</h2>
-    <p id="status">Waiting for Extension Bridge...</p>
-</div>
+<div class="container">
+    <header>
+        <h1>FIOX Web Application Bridge System</h1>
+        <p style="color: var(--text-muted); margin: 0;">Operational Console for License Verification & Core Background Actions</p>
+    </header>
 
-<div class="box">
-    <h2>Trigger Cookie Request</h2>
-    <button id="cookieBtn" disabled>Call EB.getCookies('facebook.com')</button>
-    <h3>Result:</h3>
-    <pre id="output">No data requested yet.</pre>
+    <div class="status-panel">
+        <div class="status-item">
+            <span class="status-label">Application Status</span>
+            <span class="status-value" id="system-status"><span class="badge badge-active">RUNNING</span></span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Detected Extension ID</span>
+            <span class="status-value" id="ext-id-display">Scanning...</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">License Key Status</span>
+            <span class="status-value" id="license-status">Awaiting Input</span>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Bridge Commands</h2>
+            
+            <div class="form-group">
+                <label for="action-select">Target Action Payload</label>
+                <select id="action-select">
+                    <option value="getExtensionId">Get Extension ID</option>
+                    <option value="getManifest">Get Manifest Data</option>
+                    <option value="checkLive">Check Live Token Status</option>
+                    <option value="getTokens">Retrieve Active Sessions</option>
+                    <option value="getCookies">Read Site Cookies</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="payload-input">Payload Config (JSON parameters format)</label>
+                <textarea id="payload-input" rows="4">{}</textarea>
+            </div>
+
+            <button id="send-btn">Dispatch Command Request</button>
+
+            <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
+
+            <h2>License Management Mocking</h2>
+            <div class="form-group">
+                <label for="license-input">Simulation License Key Input</label>
+                <input type="text" id="license-input" placeholder="e.g., XMETA-VIPTRIAL-KEY-2026">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button id="save-license-btn" style="background-color: var(--bg-primary); color: var(--text-main); border: 1px solid var(--accent);">Save Keys</button>
+                <button id="dev-flag-btn" style="background-color: var(--bg-primary); color: var(--text-main); border: 1px solid var(--accent-orange);">Toggle Dev Role</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Data Processing & Live Log Output</h2>
+            <div class="console-log" id="console-output"></div>
+            <button id="clear-log-btn" style="margin-top: 10px; background: #334155; color: white;">Clear Output Window</button>
+        </div>
+    </div>
 </div>
 
 <script>
-    const REQ_PREFIX = "XMETA_REQUEST_";
-    const RES_PREFIX = "XMETA_RESPONSE_";
+    (function() {
+        "use strict";
 
-    // =========================================================
-    // 1. LISTEN AND RESPOND TO THE EXTENSION
-    // =========================================================
-    window.addEventListener("message", (event) => {
-        // Ensure the message is from our own window and has valid data
-        if (event.source !== window || !event.data || !event.data.type) return;
+        // DOM elements
+        const consoleOutput = document.getElementById('console-output');
+        const actionSelect = document.getElementById('action-select');
+        const payloadInput = document.getElementById('payload-input');
+        const sendBtn = document.getElementById('send-btn');
+        const saveLicenseBtn = document.getElementById('save-license-btn');
+        const devFlagBtn = document.getElementById('dev-flag-btn');
+        const licenseInput = document.getElementById('license-input');
+        const extIdDisplay = document.getElementById('ext-id-display');
+        const licenseStatus = document.getElementById('license-status');
+        const systemStatus = document.getElementById('system-status');
 
-        // Check if it's a request coming FROM the bridge utility
-        if (event.data.type.startsWith(REQ_PREFIX)) {
-            const { id, action, payload } = event.data;
-            console.log(`Received request action: ${action}`, payload);
+        // State storage tracking tracking unique response identifiers
+        const RES_PREFIX = "XMETA_RESPONSE_";
+        let messageCounter = 0;
 
-            // Mocking database/cookie response depending on what the bridge asked
-            let resultData = { success: true };
+        // Custom Console Logger UI Helper
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const time = new Date().toISOString().slice(11, 19);
+            entry.innerText = `[${time}] ${message}`;
+            consoleOutput.appendChild(entry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
 
-            if (action === "getCookies") {
-                // Return mock cookies based on requested domain
-                resultData.cookies = [
-                    { name: "c_user", value: "10000123456789", domain: payload.domain },
-                    { name: "xs", value: "2%3Afake_session_token", domain: payload.domain }
-                ];
-            } else if (action === "getTokens") {
-                resultData.accessToken = "EAAxxFakeToken123456";
-            } else if (action === "getExtensionId") {
-                resultData.extensionId = "ilpcojdlnkcoofgnoomannbcminegjek";
+        // Initialize configurations based on target criteria matching the content script checks
+        function initStorageStatus() {
+            try {
+                const currentKey = localStorage.getItem('licenseKey') || localStorage.getItem('licenseKeySource');
+                if (currentKey) {
+                    licenseInput.value = currentKey;
+                    licenseStatus.innerText = "Key Stored Locally";
+                }
+                
+                const currentFeatures = localStorage.getItem('userFeatures');
+                if (currentFeatures && currentFeatures.includes('developer-vipdinhluon')) {
+                    log("Developer Bypass Flag detected active locally.", "warn");
+                }
+            } catch(e) {
+                log("Unable to read localStorage constraints: " + e.message, "err");
             }
+        }
 
-            // Construct the exact response type the extension expects
-            const responseMessage = {
-                type: RES_PREFIX + id, // Matches the expected template "XMETA_RESPONSE_[id]"
-                id: id,
-                result: resultData
+        // 1. Core PostMessage Engine: Sending data context matching the extension configuration
+        async function sendExtensionRequest(action, payload = {}) {
+            messageCounter++;
+            const currentMessageId = messageCounter;
+            
+            const messageEnvelope = {
+                type: "XMETA_REQUEST_GENERIC", // Wildcard catch configuration inside user logic
+                id: currentMessageId,
+                action: action,
+                payload: payload
             };
 
-            // Post back to the window so the extension's Promise resolves
-            window.postMessage(responseMessage, "*");
+            log(`Sending [ID: ${currentMessageId}] Action: ${action}`, 'send');
+            
+            return new Promise((resolve, reject) => {
+                // Setup specific callback listener for this unique message transaction block
+                const responseHandler = function(event) {
+                    if (event.source !== window) return;
+                    
+                    // Match the runtime response identifier mask generated by background bridge compilation
+                    if (event.data && event.data.type === `${RES_PREFIX}${currentMessageId}`) {
+                        window.removeEventListener('message', responseHandler);
+                        
+                        const resultPayload = event.data.result;
+                        if (resultPayload && resultPayload.success) {
+                            resolve(resultPayload);
+                        } else {
+                            reject(new Error(resultPayload?.error || "Extension communication channel failure response."));
+                        }
+                    }
+                };
+
+                window.addEventListener('message', responseHandler);
+                
+                // Dispatch event globally for context script ingestion handling mechanisms
+                window.postMessage(messageEnvelope, "*");
+
+                // Set transactional boundary safe escape context
+                setTimeout(() => {
+                    window.removeEventListener('message', responseHandler);
+                    reject(new Error(`Transaction Timeout limit (5000ms) reached waiting for Extension response ID: ${currentMessageId}`));
+                }, 5000);
+            });
         }
-    });
 
-    // =========================================================
-    // 2. WAIT FOR EXTENSION BRIDGE READY TO EXECUTE COMMANDS
-    // =========================================================
-    window.addEventListener("ExtensionBridgeReady", (event) => {
-        document.getElementById("status").textContent = `Bridge Ready! Extension ID: ${event.detail.extensionId || 'Loaded'}`;
-        document.getElementById("cookieBtn").disabled = false;
-    });
+        // 2. Continuous Monitoring Stream Handler: Captures asynchronous inbound platform messaging events
+        function setupInboundListener() {
+            window.addEventListener('message', function(event) {
+                if (event.source !== window || !event.data) return;
 
-    // Fallback check if it loaded before the event listener bound
-    if (window.__extensionBridgeReady) {
-        document.getElementById("status").textContent = "Bridge Ready! (Fallback check)";
-        document.getElementById("cookieBtn").disabled = false;
-    }
-
-    // UI Action Button
-    document.getElementById("cookieBtn").addEventListener("click", async () => {
-        const output = document.getElementById("output");
-        output.textContent = "Fetching...";
-
-        try {
-            // Using the global object exposed by your extension
-            const response = await window.EB.getCookies("facebook.com");
-            output.textContent = JSON.stringify(response, null, 2);
-        } catch (err) {
-            output.textContent = "Error calling ExtensionBridge: " + err.message;
+                // Handle system defensive reaction traps triggered inside the unified runtime content loops
+                if (event.data.type === "XMETA_FORCE_BLOCK") {
+                    log(`CRITICAL DEFENSE: Extension triggered permanent block event. Reason: [${event.data.reason}]`, 'err');
+                    systemStatus.innerHTML = '<span class="badge badge-blocked">FORCE TERMINATED</span>';
+                    document.body.style.borderColor = "var(--danger)";
+                    sendBtn.disabled = true;
+                }
+            });
         }
-    });
+
+        // Action Handlers Interaction
+        sendBtn.addEventListener('click', async () => {
+            const targetAction = actionSelect.value;
+            let parsedPayload = {};
+
+            try {
+                parsedPayload = JSON.parse(payloadInput.value);
+            } catch (e) {
+                log("Failed parsing runtime input configurations syntax parsing error.", "err");
+                return;
+            }
+
+            try {
+                const response = await sendExtensionRequest(targetAction, parsedPayload);
+                log(`Success Received [ID: ${response.id}]: ` + JSON.stringify(response.result || response), 'recv');
+                
+                // Process metadata configurations conditionally based on targeted response contexts
+                if (response.extensionId) {
+                    extIdDisplay.innerText = response.extensionId;
+                }
+            } catch (err) {
+                log(`Communication Pipeline Execution Interrupted: ${err.message}`, 'err');
+            }
+        });
+
+        saveLicenseBtn.addEventListener('click', () => {
+            const value = licenseInput.value.trim();
+            if(!value) {
+                localStorage.removeItem('licenseKey');
+                localStorage.removeItem('licenseKeySource');
+                log("Cleared internal license reference pools successfully.", "info");
+                return;
+            }
+            localStorage.setItem('licenseKey', value);
+            localStorage.setItem('licenseKeySource', value);
+            log(`License token fields mirrored internally to: ${value}`, 'info');
+        });
+
+        devFlagBtn.addEventListener('click', () => {
+            const currentFeatures = localStorage.getItem('userFeatures');
+            if (currentFeatures && currentFeatures.includes('developer-vipdinhluon')) {
+                localStorage.removeItem('userFeatures');
+                log("Developer status flag removed. Standard anti-debugging checks will run.", "info");
+            } else {
+                localStorage.setItem('userFeatures', JSON.stringify(['developer-vipdinhluon']));
+                log("Developer status flag set. Anti-debugging/kill switches bypassed.", "warn");
+            }
+        });
+
+        document.getElementById('clear-log-btn').addEventListener('click', () => {
+            consoleOutput.innerHTML = '';
+        });
+
+        // Initialize Runtime Engine Processes
+        setupInboundListener();
+        initStorageStatus();
+        log("Interface Communication Bridge Active. Waiting for postMessage pipeline execution hooks.", "info");
+
+        // Request initial handshake properties automatically after page layout validation cycles complete
+        setTimeout(async () => {
+            try {
+                const idCheck = await sendExtensionRequest('getExtensionId');
+                if(idCheck && idCheck.extensionId) extIdDisplay.innerText = idCheck.extensionId;
+            } catch(e) {
+                log("Initial automated handshake probe failed. Extension content context might not be active on this domain context.", "warn");
+            }
+        }, 1000);
+
+    })();
 </script>
-
 </body>
 </html>
