@@ -3,92 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bi-directional Message Page</title>
+    <title>Extension Bridge Interface</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f4f4f9;
-        }
-        .container {
-            max-width: 600px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .data-box {
-            background: #272822;
-            color: #f8f8f2;
-            padding: 15px;
-            border-radius: 4px;
-            overflow-x: auto;
-            font-family: monospace;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
+        body { font-family: sans-serif; margin: 30px; background-color: #f7f9fa; }
+        .box { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Actions</h2>
-    <button id="sendBtn">Request Cookies from Extension</button>
+<div class="box">
+    <h2>Extension Bridge Status</h2>
+    <p id="status">Waiting for Extension Bridge...</p>
 </div>
 
-<div class="container">
-    <h2>Received Extension Data</h2>
-    <pre id="output" class="data-box">No data received yet.</pre>
+<div class="box">
+    <h2>Trigger Cookie Request</h2>
+    <button id="cookieBtn" disabled>Call EB.getCookies('facebook.com')</button>
+    <h3>Result:</h3>
+    <pre id="output">No data requested yet.</pre>
 </div>
 
 <script>
-    // 1. CONFIGURATION
-    // Replace this with your actual extension's origin or the specific domain allowed
-    const TARGET_ORIGIN = "chrome-extension://dpokklfpgcpknolfagijlaanclchbaoh"; 
+    const REQ_PREFIX = "XMETA_REQUEST_";
+    const RES_PREFIX = "XMETA_RESPONSE_";
 
-    // 2. SENDING A MESSAGE (Webpage -> Extension/Content Script)
-    document.getElementById('sendBtn').addEventListener('click', function() {
-        const payload = {
-            action: "getCookies",
-            timestamp: Date.now()
-        };
+    // =========================================================
+    // 1. LISTEN AND RESPOND TO THE EXTENSION
+    // =========================================================
+    window.addEventListener("message", (event) => {
+        // Ensure the message is from our own window and has valid data
+        if (event.source !== window || !event.data || !event.data.type) return;
 
-        console.log("Sending message to window...", payload);
-        
-        // Target '*' allows any window to receive it, but specifying the target 
-        // origin is safer if you are communicating with a specific iframe/domain.
-        window.postMessage(payload, "*"); 
+        // Check if it's a request coming FROM the bridge utility
+        if (event.data.type.startsWith(REQ_PREFIX)) {
+            const { id, action, payload } = event.data;
+            console.log(`Received request action: ${action}`, payload);
+
+            // Mocking database/cookie response depending on what the bridge asked
+            let resultData = { success: true };
+
+            if (action === "getCookies") {
+                // Return mock cookies based on requested domain
+                resultData.cookies = [
+                    { name: "c_user", value: "10000123456789", domain: payload.domain },
+                    { name: "xs", value: "2%3Afake_session_token", domain: payload.domain }
+                ];
+            } else if (action === "getTokens") {
+                resultData.accessToken = "EAAxxFakeToken123456";
+            } else if (action === "getExtensionId") {
+                resultData.extensionId = "ilpcojdlnkcoofgnoomannbcminegjek";
+            }
+
+            // Construct the exact response type the extension expects
+            const responseMessage = {
+                type: RES_PREFIX + id, // Matches the expected template "XMETA_RESPONSE_[id]"
+                id: id,
+                result: resultData
+            };
+
+            // Post back to the window so the extension's Promise resolves
+            window.postMessage(responseMessage, "*");
+        }
     });
 
-    // 3. RECEIVING A MESSAGE (Extension -> Webpage)
-    window.addEventListener('message', function(event) {
-        // Security Check: Ensure the message comes from your trusted origin
-        if (event.origin !== TARGET_ORIGIN && TARGET_ORIGIN !== "*") {
-            return; 
-        }
+    // =========================================================
+    // 2. WAIT FOR EXTENSION BRIDGE READY TO EXECUTE COMMANDS
+    // =========================================================
+    window.addEventListener("ExtensionBridgeReady", (event) => {
+        document.getElementById("status").textContent = `Bridge Ready! Extension ID: ${event.detail.extensionId || 'Loaded'}`;
+        document.getElementById("cookieBtn").disabled = false;
+    });
 
-        // Process incoming data
-        const messageData = event.data;
-        
-        // Ignore messages sent by the webpage itself to avoid an infinite loop
-        if (messageData && messageData.action === "GET_COOKIE_DATA") {
-            return;
-        }
+    // Fallback check if it loaded before the event listener bound
+    if (window.__extensionBridgeReady) {
+        document.getElementById("status").textContent = "Bridge Ready! (Fallback check)";
+        document.getElementById("cookieBtn").disabled = false;
+    }
 
-        const outputElement = document.getElementById('output');
-        if (messageData && messageData.cookies) {
-            outputElement.textContent = JSON.stringify(messageData.cookies, null, 2);
+    // UI Action Button
+    document.getElementById("cookieBtn").addEventListener("click", async () => {
+        const output = document.getElementById("output");
+        output.textContent = "Fetching...";
+
+        try {
+            // Using the global object exposed by your extension
+            const response = await window.EB.getCookies("facebook.com");
+            output.textContent = JSON.stringify(response, null, 2);
+        } catch (err) {
+            output.textContent = "Error calling ExtensionBridge: " + err.message;
         }
     });
 </script>
