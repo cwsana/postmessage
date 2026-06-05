@@ -55,12 +55,12 @@
 <script>
     // 1. CONFIGURATION
     // Replace this with your actual extension's origin or the specific domain allowed
-    const TARGET_ORIGIN = "chrome-extension://ilpcojdlnkcoofgnoomannbcminegjek"; 
+    const TARGET_ORIGIN = "chrome-extension://dpokklfpgcpknolfagijlaanclchbaoh"; 
 
     // 2. SENDING A MESSAGE (Webpage -> Extension/Content Script)
     document.getElementById('sendBtn').addEventListener('click', function() {
         const payload = {
-            action: "GET_COOKIE_DATA",
+            action: "getCookies",
             timestamp: Date.now()
         };
 
