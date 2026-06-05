@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bi-directional Message Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .data-box {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: monospace;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Actions</h2>
+    <button id="sendBtn">Request Cookies from Extension</button>
+</div>
+
+<div class="container">
+    <h2>Received Extension Data</h2>
+    <pre id="output" class="data-box">No data received yet.</pre>
+</div>
+
+<script>
+    // 1. CONFIGURATION
+    // Replace this with your actual extension's origin or the specific domain allowed
+    const TARGET_ORIGIN = "chrome-extension://ilpcojdlnkcoofgnoomannbcminegjek"; 
+
+    // 2. SENDING A MESSAGE (Webpage -> Extension/Content Script)
+    document.getElementById('sendBtn').addEventListener('click', function() {
+        const payload = {
+            action: "GET_COOKIE_DATA",
+            timestamp: Date.now()
+        };
+
+        console.log("Sending message to window...", payload);
+        
+        // Target '*' allows any window to receive it, but specifying the target 
+        // origin is safer if you are communicating with a specific iframe/domain.
+        window.postMessage(payload, "*"); 
+    });
+
+    // 3. RECEIVING A MESSAGE (Extension -> Webpage)
+    window.addEventListener('message', function(event) {
+        // Security Check: Ensure the message comes from your trusted origin
+        if (event.origin !== TARGET_ORIGIN && TARGET_ORIGIN !== "*") {
+            return; 
+        }
+
+        // Process incoming data
+        const messageData = event.data;
+        
+        // Ignore messages sent by the webpage itself to avoid an infinite loop
+        if (messageData && messageData.action === "GET_COOKIE_DATA") {
+            return;
+        }
+
+        const outputElement = document.getElementById('output');
+        if (messageData && messageData.cookies) {
+            outputElement.textContent = JSON.stringify(messageData.cookies, null, 2);
+        }
+    });
+</script>
+
+</body>
+</html>
